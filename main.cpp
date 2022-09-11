@@ -3,7 +3,6 @@
 #include <iostream>
 #include <filesystem>
 #include <fstream>
-#include <boost/filesystem/fstream.hpp>
 using namespace boost::asio;
 constexpr std::string_view version = "0.0.1";
 size_t read_complete(char * buf, const boost::system::error_code & err, size_t bytes)
@@ -18,7 +17,6 @@ std::string send_file_to_server(const std::string& path, const ip::tcp::endpoint
     io_service service;
     ip::tcp::socket sock(service);
     sock.connect(ep);
-    auto s = std::filesystem::file_type(path);
     std::ifstream fin(path);
     sock.write_some(buffer(path+char(-1)));
     std::string text{std::istreambuf_iterator<char>(fin), std::istreambuf_iterator<char>()};
@@ -52,7 +50,7 @@ int main (int argc, char* argv[]) {
             try {
                 std::cout << send_file_to_server(path,ep);
             } catch (boost::wrapexcept<boost::system::system_error>& ex) {
-                std::cout << "потеряно соединение с сервером\n";
+                std::cout << "потеряно соединение с сервером\nУбедитесь, что вы подключены к интернету";
             }
         } else {
             std::cout << "файл не найден\n";
