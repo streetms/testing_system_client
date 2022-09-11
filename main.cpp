@@ -4,7 +4,7 @@
 #include <filesystem>
 #include <fstream>
 using namespace boost::asio;
-constexpr std::string_view version = "0.0.0";
+constexpr std::string_view version = "0.0.1";
 size_t read_complete(char * buf, const boost::system::error_code & err, size_t bytes)
 {
     if ( err)
@@ -28,10 +28,20 @@ std::string send_file_to_server(const std::string& path, const ip::tcp::endpoint
     return ans;
 }
 int main (int argc, char* argv[]) {
+#ifdef WIN32
+    system("chcp 65001");
+#endif
     std::string path;
     io_service service;
     ip::tcp::resolver resolver(service);
-    ip::tcp::endpoint ep = *resolver.resolve(ip::tcp::resolver::query ("streetms.ru", "8002"));
+    ip::tcp::endpoint ep;
+    try {
+        ep = *resolver.resolve(ip::tcp::resolver::query("streetms.ru", "8002"));
+    }
+    catch (std::exception& ex) {
+        std::cout << "не получилось установить соединение с сервером. Убедитесь, что вы подключены к интернету";
+        std::exit(1);
+    }
     while (true) {
         std::cout << "введите имя файла : ";
         std::cin >> path;
