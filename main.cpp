@@ -5,7 +5,7 @@
 #include <fstream>
 using namespace boost::asio;
 namespace fs = std::filesystem;
-constexpr std::string_view version = "0.0.1";
+constexpr std::string_view version = "0.0.2";
 size_t read_complete(char * buf, const boost::system::error_code & err, size_t bytes)
 {
     if ( err)
