@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <fstream>
 using namespace boost::asio;
+namespace fs = std::filesystem;
 constexpr std::string_view version = "0.0.1";
 size_t read_complete(char * buf, const boost::system::error_code & err, size_t bytes)
 {
@@ -18,7 +19,7 @@ std::string send_file_to_server(const std::string& path, const ip::tcp::endpoint
     ip::tcp::socket sock(service);
     sock.connect(ep);
     std::ifstream fin(path);
-    sock.write_some(buffer(path+char(-1)));
+    sock.write_some(buffer(fs::path(path).filename().string()+char(-1)));
     std::string text{std::istreambuf_iterator<char>(fin), std::istreambuf_iterator<char>()};
     text += char(-1);
     sock.write_some(buffer(text));
@@ -43,14 +44,14 @@ int main (int argc, char* argv[]) {
         std::exit(1);
     }
     while (true) {
-        std::cout << "введите имя файла : ";
+        std::cout << "\nвведите имя файла : ";
         std::cin >> path;
-        if (std::filesystem::is_regular_file(path)) {
+        if (fs::is_regular_file(path)) {
             std::cout << "тестирование...\n";
             try {
                 std::cout << send_file_to_server(path,ep);
             } catch (boost::wrapexcept<boost::system::system_error>& ex) {
-                std::cout << "потеряно соединение с сервером\nУбедитесь, что вы подключены к интернету";
+                std::cout << "потеряно соединение с сервером\nУбедитесь, что вы подключены к интернету\n";
             }
         } else {
             std::cout << "файл не найден\n";
