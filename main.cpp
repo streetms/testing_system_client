@@ -3,9 +3,11 @@
 #include <iostream>
 #include <filesystem>
 #include <fstream>
-using namespace boost::asio;
-namespace fs = std::filesystem;
-constexpr std::string_view version = "0.0.2";
+struct File{
+    File(std::string_view name, std::string_view text) : name_(name), text_(text){};
+    std::string name_;
+    std::string text_;
+};
 size_t read_complete(char * buf, const boost::system::error_code & err, size_t bytes)
 {
     if ( err)
@@ -13,22 +15,33 @@ size_t read_complete(char * buf, const boost::system::error_code & err, size_t b
     bool found = std::find(buf, buf + bytes, -1) < buf + bytes;
     return not found;
 }
+std::ostream& operator<<(std::ostream& out,File& file) {
+    return out << file.name_ << "\n" << file.text_ << std::endl;
+}
+using namespace boost::asio;
+namespace fs = std::filesystem;
+constexpr std::string_view version = "0.0.2";
+
 std::string send_file_to_server(const std::string& path, const ip::tcp::endpoint& ep)
 {
     io_service service;
     ip::tcp::socket sock(service);
+    boost::asio::streambuf buffer;
+    std::ostream out(&buffer);
     sock.connect(ep);
     std::ifstream fin(path);
-    sock.write_some(buffer(fs::path(path).filename().string()+char(-1)));
     std::string text{std::istreambuf_iterator<char>(fin), std::istreambuf_iterator<char>()};
     text += char(-1);
-    sock.write_some(buffer(text));
-    char buf[1024];
-    size_t bytes = read(sock, buffer(buf), boost::bind(read_complete,buf,_1,_2));
-    std::string ans(buf,bytes-1);
-    return ans;
+    File file(fs::path(path).filename().string()+char(-1),text);
+    out << file;
+    boost::asio::write(sock,buffer);
+    char ans[1024];
+    size_t bytes = read(sock, boost::asio::buffer(ans), boost::bind(read_complete,ans,_1,_2));
+    return {ans,bytes-1};
 }
-int main (int argc, char* argv[]) {
+int main () {
+    const std::string host = "localhost";
+    const uint port = 8002;
 #ifdef WIN32
     system("chcp 65001");
 #endif
@@ -37,7 +50,7 @@ int main (int argc, char* argv[]) {
     ip::tcp::resolver resolver(service);
     ip::tcp::endpoint ep;
     try {
-        ep = *resolver.resolve(ip::tcp::resolver::query("streetms.ru", "8002"));
+        ep = *resolver.resolve(ip::tcp::resolver::query(host, "8002"));
     }
     catch (std::exception& ex) {
         std::cout << "не получилось установить соединение с сервером. Убедитесь, что вы подключены к интернету";
