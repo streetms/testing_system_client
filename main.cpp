@@ -2,12 +2,13 @@
 #include <boost/bind.hpp>
 #include <iostream>
 #include <filesystem>
-#include <fstream>
-struct File{
-    File(std::string_view name, std::string_view text) : name_(name), text_(text){};
-    std::string name_;
-    std::string text_;
-};
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
+
+namespace pt = boost::property_tree;
+using namespace boost::asio;
+namespace fs = std::filesystem;
+constexpr std::string_view version = "0.0.2";
 size_t read_complete(char * buf, const boost::system::error_code & err, size_t bytes)
 {
     if ( err)
@@ -15,31 +16,29 @@ size_t read_complete(char * buf, const boost::system::error_code & err, size_t b
     bool found = std::find(buf, buf + bytes, -1) < buf + bytes;
     return not found;
 }
-std::ostream& operator<<(std::ostream& out,File& file) {
-    return out << file.name_ << "\n" << file.text_ << std::endl;
-}
-using namespace boost::asio;
-namespace fs = std::filesystem;
-constexpr std::string_view version = "0.0.2";
+
 
 std::string send_file_to_server(const std::string& path, const ip::tcp::endpoint& ep)
 {
     io_service service;
     ip::tcp::socket sock(service);
-    boost::asio::streambuf buffer;
-    std::ostream out(&buffer);
+    std::ostringstream out;
     sock.connect(ep);
     std::ifstream fin(path);
     std::string text{std::istreambuf_iterator<char>(fin), std::istreambuf_iterator<char>()};
-    text += char(-1);
-    File file(fs::path(path).filename().string()+char(-1),text);
-    out << file;
-    boost::asio::write(sock,buffer);
+    pt::ptree json_data;
+    json_data.put("type","file");
+    json_data.put("name",fs::path(path).filename().string());
+    json_data.put("text",text);
+    pt::write_json(out,json_data);
     char ans[1024];
+    sock.write_some(buffer(out.str()+char(-1)));
+    //char ans[1024];
     size_t bytes = read(sock, boost::asio::buffer(ans), boost::bind(read_complete,ans,_1,_2));
     return {ans,bytes-1};
 }
 int main () {
+    //const std::string host = "streetms.ru";
     const std::string host = "localhost";
     const uint port = 8002;
 #ifdef WIN32
